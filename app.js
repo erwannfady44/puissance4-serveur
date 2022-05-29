@@ -4,11 +4,10 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const mongoose = require('mongoose');
 
-const usersRouter = require('./routes/users');
+const userRouter = require('./routes/user');
 
 const app = express();
 
-app.use(cors({origin: '*'}));
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content, Accept, Content-Type, Authorization');
@@ -22,9 +21,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.use('/api/users', usersRouter);
+app.use('/api/user', userRouter);
 
-mongoose.connect('mongodb://localhost:27017/mockmooc', {useUnifiedTopology: true, useNewUrlParser: true});
+mongoose.connect('mongodb+srv://puissance4:wZWWGjFMU8Tt2ag@cluster0.5p7eq.mongodb.net/?retryWrites=true&w=majority', {useUnifiedTopology: true, useNewUrlParser: true})
+    .then(() => {
+        console.log("connected to database")
+    }).catch(err => console.log(err.message));
 
 module.exports = app;
 
