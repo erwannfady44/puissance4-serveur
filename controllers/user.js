@@ -21,7 +21,7 @@ exports.signup = (req, res, next) => {
                         token: jwt.sign(
                             {idUser: user._id, pseudo: user.pseudo},
                             keyToken,
-                            {expiresIn: '1h'}
+                            {expiresIn: '24h'}
                         )
                     });
                 })
@@ -54,7 +54,7 @@ exports.login = (req, res, next) => {
                                         pseudo: user.pseudo
                                     },
                                     keyToken,
-                                    {expiresIn: '1h'})
+                                    {expiresIn: '24h'})
                             });
                         }
                     })

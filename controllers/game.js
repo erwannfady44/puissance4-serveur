@@ -9,11 +9,11 @@ exports.createGame = (req, res) => {
     User.findOne({_id: req.body.idUser})
         .then(user => {
             if (user) {
-                Game.findOne({status: 0, $or: [{player1: user._id}, {player2: user._id}]})
+                Game.findOne({status: 0, $or: [{player0: user._id}, {player1: user._id}]})
                     .then(gameFind => {
                         if (!gameFind) {
                             const game = new Game({
-                                player1: user._id,
+                                player0: user._id,
                                 currentPlayer: Math.floor(Math.random())
                             });
                             game.save().then(() => res.status(201).json(game))
@@ -35,9 +35,9 @@ exports.joinGame = (req, res) => {
                 Game.findOne({_id: req.params.idGame})
                     .then(game => {
                         if (game) {
-                            if (!game.player2) {
+                            if (!game.player1) {
                                 game.updateOne({
-                                    player2: user._id
+                                    player1: user._id
                                 }).then((g) => res.status(200).json())
                                     .catch((err) => res.status(500).json({error: 'cannot join Game', err: err.message}))
                             } else {
@@ -59,6 +59,13 @@ exports.getAllGames = (req, res) => {
         .catch(err => res.status(500).json(err))
 }
 
+exports.deleteAllPawns = (req, res) => {
+    Pawn.deleteMany({})
+        .then(data => res.status(200).json(data))
+        .catch(err => res.status(500).json(err))
+}
+
+
 exports.play = (ws, req) => {
     let params = {};
     let connected;
@@ -70,20 +77,34 @@ exports.play = (ws, req) => {
     connect();
 
     ws.on('message', (data) => {
-        console.log(msg);
+        Game.findOne({_id: params.idGame})
+            .then(game => {
+                let playerNumber;
+                if (game.player0.toString() === params.idUser) {
+                    playerNumber = 0;
+                } else if (game.player1.toString() === params.idUser) {
+                    playerNumber = 1;
+                }
+                if (playerNumber === game.currentPlayer) {
+                    addPawn(game, JSON.parse(data).col)
+                } else {
+                    ws.send(JSON.stringify({error: "not your turn"}))
+                }
+            })
+            .catch(() => JSON.stringify('cannot find game'));
     });
 
     ws.on('close', (data) => {
         Game.findOne({_id: params.idGame})
             .then(game => {
-                if (game.player1.toString() === params.idUser) {
+                if (game.player0.toString() === params.idUser) {
+                    game.updateOne({
+                        player0Connected: false
+                    }).then()
+                } else if (game.player1.toString() === params.idUser) {
                     game.updateOne({
                         player1Connected: false
-                    }).then(() => console.log("close"))
-                } else if (game.player2.toString() === params.idUser) {
-                    game.updateOne({
-                        player2Connected: false
-                    }).then(() => console.log("close"))
+                    }).then()
                 }
             })
     });
@@ -97,18 +118,22 @@ exports.play = (ws, req) => {
             //Recherche de la game
             Game.findOne({_id: params.idGame})
                 .then(async game => {
-                    //Si le joueur est j1
-                    if (game.player1.toString() === params.idUser) {
-                        connected = true;
-                        //Changement de l'état de la connexion du joueur
-                        game.updateOne({player1Connected: true}).then(() => checkSecondPlayer(game))
-                        //Si on est j2
-                    } else if (game.player2.toString() === params.idUser) {
-                        connected = true;
-                        //Changement de l'état de la connexion du joueur
-                        game.updateOne({player2Connected: true}).then(() => checkSecondPlayer(game))
+                    if (game) {
+                        //Si le joueur est j1
+                        if (game.player0.toString() === params.idUser) {
+                            connected = true;
+                            //Changement de l'état de la connexion du joueur
+                            game.updateOne({player0Connected: true}).then(() => checkSecondPlayer(game))
+                            //Si on est j2
+                        } else if (game.player1.toString() === params.idUser) {
+                            connected = true;
+                            //Changement de l'état de la connexion du joueur
+                            game.updateOne({player1Connected: true}).then(() => checkSecondPlayer(game))
+                        } else {
+                            ws.send(JSON.stringify("wrong game"));
+                        }
                     } else {
-                        ws.send("wrong game");
+                        ws.send(JSON.stringify("cannot find game"));
                     }
 
 
@@ -121,12 +146,46 @@ exports.play = (ws, req) => {
     }
 
     function checkSecondPlayer(game) {
-        if (connected) {
-            if (game.player1Connected && game.player2Connected) {
-                ws.send("start");
-            } else {
-                ws.send("waiting player2");
-            }
+        if (game.player0Connected && game.player1Connected) {
+            ws.send("start");
+            return true;
+        } else {
+            ws.send("waiting player1");
+            return false;
+        }
+    }
+
+    function addPawn(game, column) {
+        if (column >= 1 && column <= 7) {
+            Pawn.find({idGame: game._id})
+                .then(pawns => {
+                    let pawnIncolumn = []
+                    pawns.forEach(pawn => {
+                        if (pawn.column === column) {
+                            pawnIncolumn.push(pawn);
+                        }
+                    });
+                    if (pawnIncolumn.length < 6) {
+                        const newPawn = new Pawn({
+                            idGame: game._id,
+                            idPlayer: game.currentPlayer === 0 ? game.player0 : game.player1,
+                            column: column,
+                            rows: pawnIncolumn.length + 1
+                        });
+                        newPawn.save().then(() => {
+                            game.updateOne({
+                                currentPlayer: (game.currentPlayer + 1) % 2
+                            }).then(() => ws.send(JSON.stringify({new: {newPawn}, rest: {pawns}})))
+                                .catch(err => ws.send(JSON.stringify({error: err.message})))
+                        })
+                            .catch(err => ws.send(JSON.stringify({error: err.message})))
+                    } else {
+                        ws.send(JSON.stringify({'error': 'column is full'}));
+                    }
+                })
+                .catch(err => ws.send(JSON.stringify({error: err.message})))
+        } else {
+            ws.send(JSON.stringify({error: 'column must be between 1 and 7'}));
         }
     }
 }

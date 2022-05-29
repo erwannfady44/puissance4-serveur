@@ -9,5 +9,6 @@ const authController = require('../controllers/auth');
 router.put('/create', authController, gameController.createGame);
 router.post('/:idGame/join', authController, gameController.joinGame);
 router.get('/', gameController.getAllGames);
+router.delete('/deleteAllPawns', gameController.deleteAllPawns);
 
 module.exports = router;

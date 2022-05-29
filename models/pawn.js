@@ -4,7 +4,7 @@ const uniqueValidator = require('mongoose-unique-validator');
 const pawnSchema = mongoose.Schema({
     player: {type: mongoose.Schema.Types.ObjectId, ref: 'User'},
     game: {type: mongoose.Schema.Types.ObjectId, ref: 'User'},
-    cols: {type:Number, require: true},
+    column: {type:Number, require: true},
     rows: {type:Number, require: true}
 });
 
