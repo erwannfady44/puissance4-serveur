@@ -6,13 +6,13 @@ const keyToken = 'P7H}9C7ccv^Sk7Yia0C1Te1o3g2gqTt6EmuyIi.g8(}iQLM+sGX5577&0SF)e5
 
 module.exports = (req, res, next) => {
     try {
-        const token = req.headers.authorization;
+        const token = req.headers.authorization.split(' ')[1];
         const decodedToken = jwt.verify(token, keyToken);
-        const numero_etu = decodedToken.numero_etu;
+        const idUser = decodedToken.idUser;
 
-        if (req.body.numero_etu && req.body.numero_etu === numero_etu)
+        if (req.body.idUser && req.body.idUser === idUser)
             next();
-        else if (req.query.numero_etu && req.query.numero_etu === numero_etu)
+        else if (req.query.idUser && req.query.idUser === idUser)
             next();
         else
             throw 'Wrong pseudo';

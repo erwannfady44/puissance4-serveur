@@ -5,6 +5,7 @@ const logger = require('morgan');
 const mongoose = require('mongoose');
 
 const userRouter = require('./routes/user');
+const gameRouter = require('./routes/game');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.use('/api/user', userRouter);
+app.use('/api/game', gameRouter);
 
 mongoose.connect('mongodb+srv://puissance4:wZWWGjFMU8Tt2ag@cluster0.5p7eq.mongodb.net/?retryWrites=true&w=majority', {useUnifiedTopology: true, useNewUrlParser: true})
     .then(() => {
