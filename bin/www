@@ -88,3 +88,8 @@ function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }
+
+const ws = require('ws')
+const gameController = require('../controllers/game');
+const wss = new ws.Server({server: server, path: "/api/game/play"});
+wss.on('connection', gameController.play);
