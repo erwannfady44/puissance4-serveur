@@ -1,6 +1,6 @@
-const User = require('../Models/user');
-const Game = require('../Models/game');
-const Pawn = require('../Models/pawn');
+const User = require('../models/user');
+const Game = require('../models/game');
+const Pawn = require('../models/pawn');
 
 exports.createGame = (req, res) => {
     User.findOne({pseudo: req.body.pseudo})
