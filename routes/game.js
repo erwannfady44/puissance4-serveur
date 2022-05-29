@@ -8,5 +8,6 @@ const authController = require('../controllers/auth');
 // Routes
 router.put('/create', authController, gameController.createGame);
 router.post('/:idGame/join', authController, gameController.joinGame);
+router.get('/', authController, gameController.getAllGames);
 
 module.exports = router;
