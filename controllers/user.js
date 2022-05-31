@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const Game = require('../models/game');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
@@ -66,4 +67,22 @@ exports.getAllUsers = (req, res) => {
     User.find()
         .then(data => res.status(200).json(data))
         .catch(err => res.status(500).json(err))
+}
+
+exports.isInGame = (req, res) => {
+    User.findOne({pseudo: req.params.pseudo})
+        .then(user => {
+            if (user) {
+                Game.find({status: 0, $or: [{player0: user._id}, {player1: user._id}]})
+                    .then(game => {
+                        if(game)
+                            res.status(200).json({inGame: true})
+                        else
+                            res.status(200).json({inGame: false})
+                    }).catch(err => res.status(500).json({error: err.message}))
+            } else {
+                res.status(404).json({error : 'cannot find user'})
+            }
+        }).catch(err => res.status(500).json({error : err.message}))
+
 }

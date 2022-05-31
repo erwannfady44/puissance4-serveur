@@ -10,5 +10,6 @@ router.put('/create', authController, gameController.createGame);
 router.post('/:idGame/join', authController, gameController.joinGame);
 router.get('/', gameController.getAllGames);
 router.delete('/deleteAllPawns', gameController.deleteAllPawns);
+router.delete('/deleteAllGames', gameController.deleteAllGames);
 
 module.exports = router;

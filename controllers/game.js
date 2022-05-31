@@ -38,7 +38,7 @@ exports.joinGame = (req, res) => {
                             if (!game.player1) {
                                 game.updateOne({
                                     player1: user._id
-                                }).then((g) => res.status(200).json())
+                                }).then((g) => res.status(200).json(game))
                                     .catch((err) => res.status(500).json({error: 'cannot join Game', err: err.message}))
                             } else {
                                 res.status(409).json({error: 'game is full'})
@@ -46,11 +46,11 @@ exports.joinGame = (req, res) => {
                         } else {
                             res.status(404).json({error: 'cannot find game'})
                         }
-                    })
+                    }).catch(err => res.status(500).json({error: err.message}))
             } else {
                 res.status(404).json({error: 'cannot find user'});
             }
-        })
+        }).catch(err => res.status(500).json({error: err.message}))
 }
 
 exports.getAllGames = (req, res) => {
@@ -65,127 +65,168 @@ exports.deleteAllPawns = (req, res) => {
         .catch(err => res.status(500).json(err))
 }
 
+exports.deleteAllGames = (req, res) => {
+    Game.deleteMany({})
+        .then(data => res.status(200).json(data))
+        .catch(err => res.status(500).json(err))
+}
 
-exports.play = (ws, req) => {
-    let params = {};
-    let connected;
-    req.url.split('?')[1].split(('&')).forEach(p => {
-        let d = p.split('=');
-        params[d[0]] = d[1];
-    });
+exports.play = (wss) => {
+    wss.on('connection', (ws, req) => {
+        let params = {};
+        let connected;
+        req.url.split('?')[1].split(('&')).forEach(p => {
+            let d = p.split('=');
+            params[d[0]] = d[1];
+        });
 
-    connect();
+        ws.idGame = params.idGame;
 
-    ws.on('message', (data) => {
-        Game.findOne({_id: params.idGame})
-            .then(game => {
-                let playerNumber;
-                if (game.player0.toString() === params.idUser) {
-                    playerNumber = 0;
-                } else if (game.player1.toString() === params.idUser) {
-                    playerNumber = 1;
-                }
-                if (playerNumber === game.currentPlayer) {
-                    addPawn(game, JSON.parse(data).col)
-                } else {
-                    ws.send(JSON.stringify({error: "not your turn"}))
-                }
-            })
-            .catch(() => JSON.stringify('cannot find game'));
-    });
+        connect();
 
-    ws.on('close', (data) => {
-        Game.findOne({_id: params.idGame})
-            .then(game => {
-                if (game.player0.toString() === params.idUser) {
-                    game.updateOne({
-                        player0Connected: false
-                    }).then()
-                } else if (game.player1.toString() === params.idUser) {
-                    game.updateOne({
-                        player1Connected: false
-                    }).then()
-                }
-            })
-    });
-
-    function connect() {
-        //Vérification de l'authentification
-        const decodedToken = jwt.verify(params.token, keyToken);
-        const idUser = decodedToken.idUser;
-        //Si le joueur est authentifié
-        if (params.idUser && params.idUser === idUser) {
-            //Recherche de la game
+        ws.on('message', (data) => {
+            data = JSON.parse(data.toString());
             Game.findOne({_id: params.idGame})
-                .then(async game => {
+                .then(game => {
+                    let playerNumber;
+                    if (game.player0.toString() === params.idUser) {
+                        playerNumber = 0;
+                    } else if (game.player1.toString() === params.idUser) {
+                        playerNumber = 1;
+                    }
+                    if (playerNumber === game.currentPlayer) {
+                        addPawn(game, data.column, game.currentPlayer === 0 ? "red" : "yellow")
+                    } else {
+                        ws.send(JSON.stringify({error: "not your turn"}))
+                    }
+                })
+                .catch(() => JSON.stringify('cannot find game'));
+        });
+
+        ws.on('close', (data) => {
+            Game.findOne({_id: params.idGame})
+                .then(game => {
                     if (game) {
-                        //Si le joueur est j1
-                        if (game.player0.toString() === params.idUser) {
-                            connected = true;
-                            //Changement de l'état de la connexion du joueur
-                            game.updateOne({player0Connected: true}).then(() => checkSecondPlayer(game))
-                            //Si on est j2
-                        } else if (game.player1.toString() === params.idUser) {
-                            connected = true;
-                            //Changement de l'état de la connexion du joueur
-                            game.updateOne({player1Connected: true}).then(() => checkSecondPlayer(game))
+                        Game.deleteOne({_id: game._id})
+                            .then(() => {
+                                broadCast(game._id, {status: 2});
+                                deleteClient(game._id);
+                            })
+                    }
+                })
+        });
+
+        function connect() {
+            //Vérification de l'authentification
+            const decodedToken = jwt.verify(params.token, keyToken);
+            const idUser = decodedToken.idUser;
+            //Si le joueur est authentifié
+            if (params.idUser && params.idUser === idUser) {
+                //Recherche de la game
+                Game.findOne({_id: params.idGame})
+                    .then(async game => {
+                        if (game) {
+
+                            //Si le joueur est j1
+                            if (game.player0.toString() === params.idUser) {
+                                connected = true;
+                                //Changement de l'état de la connexion du joueur
+                                game.updateOne({player0Connected: true}).then(() => checkSecondPlayer(game, 0))
+                                //Si on est j2
+                            } else if (game.player1.toString() === params.idUser) {
+                                connected = true;
+                                //Changement de l'état de la connexion du joueur
+                                game.updateOne({player1Connected: true}).then(() => checkSecondPlayer(game, 1))
+                            } else {
+                                ws.send(JSON.stringify("wrong game"));
+                            }
                         } else {
-                            ws.send(JSON.stringify("wrong game"));
+                            ws.send(JSON.stringify("cannot find game"));
                         }
-                    } else {
-                        ws.send(JSON.stringify("cannot find game"));
-                    }
 
 
-                })
-        } else {
-            ws.send('not ok');
+                    })
+            } else {
+                ws.send('not ok');
+            }
+
+
         }
 
-
-    }
-
-    function checkSecondPlayer(game) {
-        if (game.player0Connected && game.player1Connected) {
-            ws.send("start");
-            return true;
-        } else {
-            ws.send("waiting player1");
-            return false;
+        function checkSecondPlayer(game, playerNumber) {
+            if (game.player0Connected && playerNumber === 1) {
+                broadCast(game._id, {status: 1})
+            } else if (game.player1Connected && playerNumber === 0) {
+                broadCast(game._id, {status: 1})
+            } else {
+                ws.send(JSON.stringify({status: 0}));
+            }
         }
-    }
 
-    function addPawn(game, column) {
-        if (column >= 1 && column <= 7) {
-            Pawn.find({idGame: game._id})
-                .then(pawns => {
-                    let pawnIncolumn = []
-                    pawns.forEach(pawn => {
-                        if (pawn.column === column) {
-                            pawnIncolumn.push(pawn);
-                        }
-                    });
-                    if (pawnIncolumn.length < 6) {
-                        const newPawn = new Pawn({
-                            idGame: game._id,
-                            idPlayer: game.currentPlayer === 0 ? game.player0 : game.player1,
-                            column: column,
-                            rows: pawnIncolumn.length + 1
+        function addPawn(game, column, color) {
+            if (column >= 0 && column <= 6) {
+                Pawn.find({idGame: game._id})
+                    .then(pawns => {
+                        let pawnIncolumn =
+                            []
+                        pawns.forEach(pawn => {
+                            if (pawn.column === column) {
+                                pawnIncolumn.push(pawn);
+                            }
                         });
-                        newPawn.save().then(() => {
-                            game.updateOne({
-                                currentPlayer: (game.currentPlayer + 1) % 2
-                            }).then(() => ws.send(JSON.stringify({new: {newPawn}, rest: {pawns}})))
+                        if (pawnIncolumn.length < 6) {
+                            const newPawn = new Pawn({
+                                idGame: game._id,
+                                idPlayer: game.currentPlayer === 0 ? game.player0 : game.player1,
+                                column: column,
+                                row: pawnIncolumn.length,
+                                color: color
+                            });
+                            newPawn.save().then(() => {
+                                game.updateOne({
+                                    currentPlayer: (game.currentPlayer + 1) % 2
+                                }).then(() => broadCast(game._id, {
+                                    newPawn: {
+                                        color: newPawn.color,
+                                        column: newPawn.column,
+                                        row: newPawn.row
+                                    }
+                                }))
+                                    .catch(err => ws.send(JSON.stringify({error: err.message})))
+                            })
                                 .catch(err => ws.send(JSON.stringify({error: err.message})))
-                        })
-                            .catch(err => ws.send(JSON.stringify({error: err.message})))
-                    } else {
-                        ws.send(JSON.stringify({'error': 'column is full'}));
-                    }
-                })
-                .catch(err => ws.send(JSON.stringify({error: err.message})))
-        } else {
-            ws.send(JSON.stringify({error: 'column must be between 1 and 7'}));
+                        } else {
+                            ws.send(JSON.stringify({'error': 'column is full'}));
+                        }
+                    })
+                    .catch(err => ws.send(JSON.stringify({error: err.message})))
+            } else {
+                ws.send(JSON.stringify({error: 'column must be between 0 and 6'}));
+            }
+        }
+    })
+
+    function broadCast(idGame, data) {
+        let i = 0;
+        for (let client of wss.clients) {
+            if (client.idGame === idGame.toString()) {
+                client.send(JSON.stringify(data));
+                i++;
+                if (i === 2)
+                    return
+            }
+        }
+    }
+
+    function deleteClient(idGame) {
+        let i = 0;
+        for (let client of wss.clients) {
+            if (client.idGame === idGame) {
+                wss.clients.delete(client);
+                i++;
+                if (i === 2)
+                    return
+            }
         }
     }
 }
