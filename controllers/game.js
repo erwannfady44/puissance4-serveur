@@ -38,7 +38,7 @@ exports.joinGame = (req, res) => {
                             if (!game.player1) {
                                 game.updateOne({
                                     player1: user._id
-                                }).then((g) => res.status(200).json(game))
+                                }).then(() => res.status(200).json(game))
                                     .catch((err) => res.status(500).json({error: 'cannot join Game', err: err.message}))
                             } else {
                                 res.status(409).json({error: 'game is full'})
@@ -185,13 +185,27 @@ exports.play = (wss) => {
                             newPawn.save().then(() => {
                                 game.updateOne({
                                     currentPlayer: (game.currentPlayer + 1) % 2
-                                }).then(() => broadCast(game._id, {
-                                    newPawn: {
-                                        color: newPawn.color,
-                                        column: newPawn.column,
-                                        row: newPawn.row
+                                }).then(() => {
+                                    pawns.push(newPawn)
+                                    const response = {
+                                        newPawn: {
+                                            color: newPawn.color,
+                                            column: newPawn.column,
+                                            row: newPawn.row
+                                        }
                                     }
-                                }))
+                                    let winnerPawns = checkEnd(pawns);
+                                    if (winnerPawns) {
+                                        response.winnerPawns = winnerPawns;
+                                        response.status = 2;
+                                        response.winner = game.currentPlayer;
+
+                                        game.deleteOne({_id: game._id})
+                                            .then(() => broadCast(game._id, response))
+                                            .catch(err => ws.send(JSON.stringify({error: err.message})))
+                                    } else
+                                        broadCast(game._id, response)
+                                })
                                     .catch(err => ws.send(JSON.stringify({error: err.message})))
                             })
                                 .catch(err => ws.send(JSON.stringify({error: err.message})))
@@ -202,6 +216,64 @@ exports.play = (wss) => {
                     .catch(err => ws.send(JSON.stringify({error: err.message})))
             } else {
                 ws.send(JSON.stringify({error: 'column must be between 0 and 6'}));
+            }
+        }
+
+        function checkEnd(pawns) {
+            if (pawns.length < 7)
+                return false;
+            else {
+                let pawnsSorted = sortPawns(pawns);
+                let winnerPawns = checkRows(pawnsSorted);
+
+                if (winnerPawns) {
+                    return winnerPawns;
+                }
+
+            }
+
+            function sortPawns(pawns) {
+                const sortedPawns = [];
+
+                for (let i = 0; i < 7; i++) {
+                    sortedPawns.push([])
+                }
+                for (const pawn of pawns) {
+                    sortedPawns[pawn.row][pawn.column] = pawn;
+                }
+
+                return sortedPawns;
+            }
+
+            function checkRows(pawns) {
+                for (let i = 0; i < 7; i++) {
+                    let color;
+                    let winnerPawns = [];
+                    if (pawns[i][0]) {
+                        for (let j = 0; j < 6; j++) {
+                            if (pawns[i][j]) {
+                                console.log(pawns[i][j].color)
+                                if (!color && i === 0) {
+                                    color = pawns[i][j].color;
+                                    winnerPawns.push(pawns[i][j])
+                                } else {
+                                    if (color === pawns[i][j].color) {
+                                        winnerPawns.push(pawns[i][j])
+
+                                    } else {
+                                        color = pawns[i][j].color;
+                                        winnerPawns = [pawns[i][j]]
+                                    }
+
+                                    if (winnerPawns.length === 4) {
+                                        return winnerPawns;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return null;
             }
         }
     })
