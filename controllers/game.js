@@ -227,6 +227,10 @@ exports.play = (wss) => {
                 let winnerPawns = checkRows(pawnsSorted);
                 if (!winnerPawns)
                     winnerPawns = checkColumn(pawnsSorted);
+                if (!winnerPawns)
+                    winnerPawns = checkRightDiagonal(pawnsSorted);
+                if (!winnerPawns)
+                    winnerPawns = checkLeftDiagonal(pawnsSorted);
                 if (winnerPawns) {
                     return winnerPawns;
                 }
@@ -250,38 +254,9 @@ exports.play = (wss) => {
                 for (let i = 0; i < 6; i++) {
                     let color;
                     let winnerPawns = [];
-                        for (let j = 0; j < 7; j++) {
-                            if (pawns[i][j]) {
-                                if (!color && i === 0) {
-                                    color = pawns[i][j].color;
-                                    winnerPawns.push(pawns[i][j])
-                                } else {
-                                    if (color === pawns[i][j].color) {
-                                        winnerPawns.push(pawns[i][j])
-
-                                    } else {
-                                        color = pawns[i][j].color;
-                                        winnerPawns = [pawns[i][j]]
-                                    }
-
-                                    if (winnerPawns.length === 4) {
-                                        return winnerPawns;
-                                    }
-                                }
-                            }
-                        }
-
-                }
-                return null;
-            }
-
-            function checkColumn(pawns) {
-                for (let j = 0; j < 7; j++) {
-                    let color;
-                    let winnerPawns = [];
-                    for (let i = 0; i < 6; i++) {
+                    for (let j = 0; j < 7; j++) {
                         if (pawns[i][j]) {
-                            if (!color && i === 0) {
+                            if (!color) {
                                 color = pawns[i][j].color;
                                 winnerPawns.push(pawns[i][j])
                             } else {
@@ -300,6 +275,95 @@ exports.play = (wss) => {
                         }
                     }
 
+                }
+                return null;
+            }
+
+            function checkColumn(pawns) {
+                for (let j = 0; j < 7; j++) {
+                    let color;
+                    let winnerPawns = [];
+                    for (let i = 0; i < 6; i++) {
+                        if (pawns[i][j]) {
+                            if (!color) {
+                                color = pawns[i][j].color;
+                                winnerPawns.push(pawns[i][j])
+                            } else {
+                                if (color === pawns[i][j].color) {
+                                    winnerPawns.push(pawns[i][j])
+
+                                } else {
+                                    color = pawns[i][j].color;
+                                    winnerPawns = [pawns[i][j]]
+                                }
+
+                                if (winnerPawns.length === 4) {
+                                    return winnerPawns;
+                                }
+                            }
+                        }
+                    }
+
+                }
+                return null;
+            }
+
+            function checkRightDiagonal(pawns) {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        let color;
+                        let winnerPawns = [];
+                        for (let n = 0; n < 4; n++) {
+                            if (pawns[i + n][j + n]) {
+                                if (!color && n === 0) {
+                                    color = pawns[i + n][j + n].color;
+                                    winnerPawns.push(pawns[i + n][j + n])
+                                } else {
+                                    if (color === pawns[i + n][j + n].color) {
+                                        winnerPawns.push(pawns[i + n][j + n])
+
+                                    } else {
+                                        color = pawns[i + n][j + n].color;
+                                        winnerPawns = [pawns[i + n][j + n]]
+                                    }
+
+                                    if (winnerPawns.length === 4) {
+                                        return winnerPawns;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function checkLeftDiagonal(pawns) {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 6; j >= 3; j--) {
+                        let color;
+                        let winnerPawns = [];
+                        for (let n = 0; n < 4; n++) {
+                            if (pawns[i + n][j - n]) {
+                                if (!color && n === 0) {
+                                    color = pawns[i + n][j - n].color;
+                                    winnerPawns.push(pawns[i + n][j - n])
+                                } else {
+                                    if (color === pawns[i + n][j - n].color) {
+                                        winnerPawns.push(pawns[i + n][j - n])
+
+                                    } else {
+                                        color = pawns[i + n][j - n].color;
+                                        winnerPawns = [pawns[i + n][j - n]]
+                                    }
+
+                                    if (winnerPawns.length === 4) {
+                                        return winnerPawns;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 return null;
             }
