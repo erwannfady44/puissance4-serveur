@@ -225,7 +225,8 @@ exports.play = (wss) => {
             else {
                 let pawnsSorted = sortPawns(pawns);
                 let winnerPawns = checkRows(pawnsSorted);
-
+                if (!winnerPawns)
+                    winnerPawns = checkColumn(pawnsSorted);
                 if (winnerPawns) {
                     return winnerPawns;
                 }
@@ -235,7 +236,7 @@ exports.play = (wss) => {
             function sortPawns(pawns) {
                 const sortedPawns = [];
 
-                for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < 6; i++) {
                     sortedPawns.push([])
                 }
                 for (const pawn of pawns) {
@@ -246,13 +247,11 @@ exports.play = (wss) => {
             }
 
             function checkRows(pawns) {
-                for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < 6; i++) {
                     let color;
                     let winnerPawns = [];
-                    if (pawns[i][0]) {
-                        for (let j = 0; j < 6; j++) {
+                        for (let j = 0; j < 7; j++) {
                             if (pawns[i][j]) {
-                                console.log(pawns[i][j].color)
                                 if (!color && i === 0) {
                                     color = pawns[i][j].color;
                                     winnerPawns.push(pawns[i][j])
@@ -271,7 +270,36 @@ exports.play = (wss) => {
                                 }
                             }
                         }
+
+                }
+                return null;
+            }
+
+            function checkColumn(pawns) {
+                for (let j = 0; j < 7; j++) {
+                    let color;
+                    let winnerPawns = [];
+                    for (let i = 0; i < 6; i++) {
+                        if (pawns[i][j]) {
+                            if (!color && i === 0) {
+                                color = pawns[i][j].color;
+                                winnerPawns.push(pawns[i][j])
+                            } else {
+                                if (color === pawns[i][j].color) {
+                                    winnerPawns.push(pawns[i][j])
+
+                                } else {
+                                    color = pawns[i][j].color;
+                                    winnerPawns = [pawns[i][j]]
+                                }
+
+                                if (winnerPawns.length === 4) {
+                                    return winnerPawns;
+                                }
+                            }
+                        }
                     }
+
                 }
                 return null;
             }
@@ -291,6 +319,7 @@ exports.play = (wss) => {
     }
 
     function deleteClient(idGame) {
+        console.log("chelou")
         let i = 0;
         for (let client of wss.clients) {
             if (client.idGame === idGame) {
