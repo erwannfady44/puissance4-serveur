@@ -104,16 +104,10 @@ exports.play = (wss) => {
         });
 
         ws.on('close', (data) => {
-            Game.findOne({_id: params.idGame})
-                .then(game => {
-                    if (game) {
-                        Game.deleteOne({_id: game._id})
-                            .then(() => {
-                                broadCast(game._id, {status: 2});
-                                deleteClient(game._id);
-                            })
-                    }
-                })
+            broadCast(params.idGame, {status: 3});
+            deleteClient(params.idGame);
+            Game.deleteMany({_id: params.idGame})
+                .then().catch(err => console.log(err.message));
         });
 
         function connect() {
@@ -163,7 +157,7 @@ exports.play = (wss) => {
             }
         }
 
-        function addPawn(game, column, color) {
+        function addPawn(game, column, color)   {
             if (column >= 0 && column <= 6) {
                 Pawn.find({idGame: game._id})
                     .then(pawns => {
@@ -386,7 +380,6 @@ exports.play = (wss) => {
     }
 
     function deleteClient(idGame) {
-        console.log("chelou")
         let i = 0;
         for (let client of wss.clients) {
             if (client.idGame === idGame) {
