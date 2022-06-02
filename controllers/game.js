@@ -14,7 +14,7 @@ exports.createGame = (req, res) => {
                         if (!gameFind) {
                             const game = new Game({
                                 player0: user._id,
-                                currentPlayer: Math.floor(Math.random())
+                                currentPlayer: (Math.floor(Math.random()) * 10) % 2
                             });
                             game.save().then(() => res.status(201).json(game))
                                 .catch(() => 'cannot create game');
@@ -81,26 +81,45 @@ exports.play = (wss) => {
         });
 
         ws.idGame = params.idGame;
+        ws.idUser = params.idUser;
 
         connect();
 
         ws.on('message', (data) => {
             data = JSON.parse(data.toString());
-            Game.findOne({_id: params.idGame})
-                .then(game => {
-                    let playerNumber;
-                    if (game.player0.toString() === params.idUser) {
-                        playerNumber = 0;
-                    } else if (game.player1.toString() === params.idUser) {
-                        playerNumber = 1;
-                    }
-                    if (playerNumber === game.currentPlayer) {
-                        addPawn(game, data.column, game.currentPlayer === 0 ? "red" : "yellow")
-                    } else {
-                        ws.send(JSON.stringify({error: "not your turn"}))
-                    }
-                })
-                .catch(() => JSON.stringify('cannot find game'));
+            if ('playAgain' in data) {
+                ws.playAgain = true;
+                let players = playAgain(params.idGame);
+                if (players) {
+                    let newGame = new Game({
+                        player0: players[0],
+                        player0Connected: params.idUser === players[0],
+                        player1: players[1],
+                        player1Connected: params.idUser === players[1],
+                        currentPlayer: (Math.floor(Math.random()) * 10) % 2,
+                        status: 1
+                    })
+
+                    newGame.save()
+                        .then((newGame) => broadCast(params.idGame, newGame))
+                }
+            } else {
+                Game.findOne({_id: params.idGame})
+                    .then(game => {
+                        let playerNumber;
+                        if (game.player0.toString() === params.idUser) {
+                            playerNumber = 0;
+                        } else if (game.player1.toString() === params.idUser) {
+                            playerNumber = 1;
+                        }
+                        if (playerNumber === game.currentPlayer) {
+                            addPawn(game, data.column, game.currentPlayer === 0 ? "red" : "yellow")
+                        } else {
+                            ws.send(JSON.stringify({error: "not your turn"}))
+                        }
+                    })
+                    .catch(() => JSON.stringify('cannot find game'));
+            }
         });
 
         ws.on('close', (data) => {
@@ -157,7 +176,7 @@ exports.play = (wss) => {
             }
         }
 
-        function addPawn(game, column, color)   {
+        function addPawn(game, column, color) {
             if (column >= 0 && column <= 6) {
                 Pawn.find({idGame: game._id})
                     .then(pawns => {
@@ -192,7 +211,10 @@ exports.play = (wss) => {
                                     if (winnerPawns) {
                                         response.winnerPawns = winnerPawns;
                                         response.status = 2;
-                                        response.winner = game.currentPlayer;
+                                        if (winnerPawns !== [])
+                                            response.winner = game.currentPlayer;
+                                        else
+                                            response.winner = 2
 
                                         game.deleteOne({_id: game._id})
                                             .then(() => broadCast(game._id, response))
@@ -227,8 +249,8 @@ exports.play = (wss) => {
                     winnerPawns = checkLeftDiagonal(pawnsSorted);
                 if (winnerPawns) {
                     return winnerPawns;
-                }
-
+                } else if (pawnsSorted.length === 42)
+                    return []
             }
 
             function sortPawns(pawns) {
@@ -355,8 +377,7 @@ exports.play = (wss) => {
                                         return winnerPawns;
                                     }
                                 }
-                            }
-                            else {
+                            } else {
                                 winnerPawns = [];
                             }
                         }
@@ -372,8 +393,7 @@ exports.play = (wss) => {
         for (let client of wss.clients) {
             if (client.idGame === idGame.toString()) {
                 client.send(JSON.stringify(data));
-                i++;
-                if (i === 2)
+                if (++i === 2)
                     return
             }
         }
@@ -389,5 +409,17 @@ exports.play = (wss) => {
                     return
             }
         }
+    }
+
+    function playAgain(idGame) {
+        const players = [];
+        for (let client of wss.clients) {
+            if (client.idGame === idGame.toString() && client.playAgain) {
+                players.push(client)
+                if (players.length === 2)
+                    return players;
+            }
+        }
+        return;
     }
 }
