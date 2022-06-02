@@ -272,7 +272,7 @@ exports.play = (wss) => {
                                     return winnerPawns;
                                 }
                             }
-                        }
+                        } else winnerPawns = [];
                     }
 
                 }
@@ -301,7 +301,7 @@ exports.play = (wss) => {
                                     return winnerPawns;
                                 }
                             }
-                        }
+                        } else winnerPawns = [];
                     }
 
                 }
@@ -331,7 +331,7 @@ exports.play = (wss) => {
                                         return winnerPawns;
                                     }
                                 }
-                            }
+                            } else winnerPawns = [];
                         }
                     }
                 }
@@ -361,6 +361,9 @@ exports.play = (wss) => {
                                         return winnerPawns;
                                     }
                                 }
+                            }
+                            else {
+                                winnerPawns = [];
                             }
                         }
                     }
