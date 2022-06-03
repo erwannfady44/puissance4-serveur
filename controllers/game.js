@@ -218,7 +218,8 @@ exports.play = (wss) => {
 
                                         game.deleteOne({_id: game._id})
                                             .then(() => {
-                                                Pawn.deleteMany({idGame: game._id})
+                                                Pawn.deleteMany({idGame: game._id});
+                                                broadCast(params.idGame, response);
                                             })
                                             .catch(err => ws.send(JSON.stringify({error: err.message})))
                                     } else
